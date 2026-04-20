@@ -102,18 +102,29 @@
         </field>
     </record>
 
-    <!-- Vista Kanban embedida (Odoo 18/19: t-name="card") -->
+    <!-- Vista Kanban embedida -->
     <record id="view_sale_payment_proof_kanban" model="ir.ui.view">
         <field name="name">sale.payment.proof.kanban</field>
         <field name="model">sale.payment.proof</field>
         <field name="arch" type="xml">
             <kanban class="o_payment_proof_kanban" default_order="upload_date desc">
+                <field name="id"/>
+                <field name="is_image"/>
+                <field name="is_pdf"/>
+                <field name="state"/>
+                <field name="amount"/>
+                <field name="currency_id"/>
+                <field name="payment_date"/>
+                <field name="payment_method"/>
+                <field name="reference"/>
+                <field name="upload_date"/>
+                <field name="uploaded_by"/>
                 <templates>
                     <t t-name="card">
                         <div class="o_payment_proof_card">
                             <div class="o_pp_preview">
                                 <t t-if="record.is_image.raw_value">
-                                    <img t-attf-src="/web/image/sale.payment.proof/{{record.id.raw_value}}/file"
+                                    <img t-att-src="'/web/image/sale.payment.proof/' + record.id.raw_value + '/file'"
                                          alt="Comprobante"
                                          class="o_pp_thumb"/>
                                 </t>
@@ -128,8 +139,11 @@
                                         <i class="fa fa-file-o"/>
                                     </div>
                                 </t>
-                                <span t-attf-class="o_pp_state badge {{record.state.raw_value == 'applied' ? 'text-bg-success' : record.state.raw_value == 'rejected' ? 'text-bg-danger' : 'text-bg-warning'}}">
-                                    <field name="state"/>
+                                <span class="o_pp_state">
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'applied'"
+                                           decoration-danger="state == 'rejected'"
+                                           decoration-warning="state == 'pending'"/>
                                 </span>
                             </div>
                             <div class="o_pp_body">
@@ -138,7 +152,6 @@
                                 </div>
                                 <div class="o_pp_amount" t-if="record.amount.raw_value">
                                     <field name="amount" widget="monetary"/>
-                                    <field name="currency_id" invisible="1"/>
                                 </div>
                                 <div class="o_pp_meta">
                                     <div t-if="record.payment_date.raw_value">
@@ -162,7 +175,7 @@
         </field>
     </record>
 
-    <!-- Vista Search (Odoo 19: sin expand="0") -->
+    <!-- Vista Search (patrón estándar Odoo 18/19: expand="0" y domain="[]" en group_by) -->
     <record id="view_sale_payment_proof_search" model="ir.ui.view">
         <field name="name">sale.payment.proof.search</field>
         <field name="model">sale.payment.proof</field>
@@ -173,18 +186,17 @@
                 <field name="partner_id"/>
                 <field name="reference"/>
                 <field name="uploaded_by"/>
+                <filter name="filter_pending" string="Pendientes" domain="[('state', '=', 'pending')]"/>
+                <filter name="filter_applied" string="Aplicados" domain="[('state', '=', 'applied')]"/>
+                <filter name="filter_rejected" string="Rechazados" domain="[('state', '=', 'rejected')]"/>
                 <separator/>
-                <filter string="Pendientes" name="filter_pending" domain="[('state', '=', 'pending')]"/>
-                <filter string="Aplicados" name="filter_applied" domain="[('state', '=', 'applied')]"/>
-                <filter string="Rechazados" name="filter_rejected" domain="[('state', '=', 'rejected')]"/>
-                <separator/>
-                <filter string="Mis cargas" name="filter_mine" domain="[('uploaded_by', '=', uid)]"/>
-                <group string="Agrupar por">
-                    <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
-                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
-                    <filter string="Método de pago" name="group_method" context="{'group_by': 'payment_method'}"/>
-                    <filter string="Subido por" name="group_uploader" context="{'group_by': 'uploaded_by'}"/>
-                    <filter string="Fecha de carga" name="group_upload" context="{'group_by': 'upload_date'}"/>
+                <filter name="filter_mine" string="Mis cargas" domain="[('uploaded_by', '=', uid)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter name="group_partner" string="Cliente" domain="[]" context="{'group_by': 'partner_id'}"/>
+                    <filter name="group_state" string="Estado" domain="[]" context="{'group_by': 'state'}"/>
+                    <filter name="group_method" string="Método de pago" domain="[]" context="{'group_by': 'payment_method'}"/>
+                    <filter name="group_uploader" string="Subido por" domain="[]" context="{'group_by': 'uploaded_by'}"/>
+                    <filter name="group_upload" string="Fecha de carga" domain="[]" context="{'group_by': 'upload_date'}"/>
                 </group>
             </search>
         </field>
