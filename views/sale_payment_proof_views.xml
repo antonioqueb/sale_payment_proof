@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Vista Form -->
+    <record id="view_sale_payment_proof_form" model="ir.ui.view">
+        <field name="name">sale.payment.proof.form</field>
+        <field name="model">sale.payment.proof</field>
+        <field name="arch" type="xml">
+            <form string="Comprobante de Pago">
+                <header>
+                    <button name="action_mark_applied"
+                            string="Marcar como aplicado"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="state == 'applied'"/>
+                    <button name="action_mark_rejected"
+                            string="Rechazar"
+                            type="object"
+                            invisible="state == 'rejected'"/>
+                    <button name="action_mark_pending"
+                            string="Volver a pendiente"
+                            type="object"
+                            invisible="state == 'pending'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,applied"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_preview"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-eye"
+                                invisible="not file">
+                            <span class="o_stat_text">Ver</span>
+                        </button>
+                        <button name="action_download"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-download"
+                                invisible="not file">
+                            <span class="o_stat_text">Descargar</span>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1>
+                            <field name="name" placeholder="Descripción del comprobante"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="sale_order_id" readonly="1"/>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="amount" widget="monetary"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="payment_date"/>
+                            <field name="payment_method"/>
+                            <field name="reference"/>
+                        </group>
+                        <group>
+                            <field name="file" filename="file_name" widget="binary"/>
+                            <field name="file_name" invisible="1"/>
+                            <field name="file_mimetype" invisible="1"/>
+                            <field name="is_pdf" invisible="1"/>
+                            <field name="is_image" invisible="1"/>
+                            <field name="upload_date"/>
+                            <field name="uploaded_by"/>
+                            <field name="activity_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group string="Notas">
+                        <field name="notes" nolabel="1" placeholder="Notas adicionales..."/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista List -->
+    <record id="view_sale_payment_proof_list" model="ir.ui.view">
+        <field name="name">sale.payment.proof.list</field>
+        <field name="model">sale.payment.proof</field>
+        <field name="arch" type="xml">
+            <list string="Comprobantes de Pago" decoration-success="state == 'applied'" decoration-danger="state == 'rejected'" decoration-warning="state == 'pending'">
+                <field name="upload_date"/>
+                <field name="name"/>
+                <field name="sale_order_id"/>
+                <field name="partner_id"/>
+                <field name="amount" widget="monetary" sum="Total"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="payment_date"/>
+                <field name="payment_method"/>
+                <field name="reference"/>
+                <field name="uploaded_by"/>
+                <field name="state" widget="badge" decoration-success="state == 'applied'" decoration-danger="state == 'rejected'" decoration-warning="state == 'pending'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista Kanban embedida -->
+    <record id="view_sale_payment_proof_kanban" model="ir.ui.view">
+        <field name="name">sale.payment.proof.kanban</field>
+        <field name="model">sale.payment.proof</field>
+        <field name="arch" type="xml">
+            <kanban class="o_payment_proof_kanban" default_order="upload_date desc">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="amount"/>
+                <field name="currency_id"/>
+                <field name="payment_date"/>
+                <field name="payment_method"/>
+                <field name="reference"/>
+                <field name="upload_date"/>
+                <field name="uploaded_by"/>
+                <field name="state"/>
+                <field name="is_pdf"/>
+                <field name="is_image"/>
+                <field name="file_name"/>
+                <field name="file_mimetype"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click o_payment_proof_card">
+                            <div class="o_pp_preview">
+                                <t t-if="record.is_image.raw_value">
+                                    <img t-attf-src="/web/image/sale.payment.proof/#{record.id.raw_value}/file"
+                                         alt="Comprobante"
+                                         class="o_pp_thumb"/>
+                                </t>
+                                <t t-elif="record.is_pdf.raw_value">
+                                    <div class="o_pp_pdf">
+                                        <i class="fa fa-file-pdf-o"/>
+                                        <span>PDF</span>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="o_pp_pdf">
+                                        <i class="fa fa-file-o"/>
+                                    </div>
+                                </t>
+                                <span t-attf-class="o_pp_state badge #{record.state.raw_value == 'applied' ? 'text-bg-success' : record.state.raw_value == 'rejected' ? 'text-bg-danger' : 'text-bg-warning'}">
+                                    <field name="state"/>
+                                </span>
+                            </div>
+                            <div class="o_pp_body">
+                                <div class="o_pp_title">
+                                    <field name="name"/>
+                                </div>
+                                <div class="o_pp_amount" t-if="record.amount.raw_value">
+                                    <field name="amount" widget="monetary"/>
+                                </div>
+                                <div class="o_pp_meta">
+                                    <div t-if="record.payment_date.raw_value">
+                                        <i class="fa fa-calendar"/> <field name="payment_date"/>
+                                    </div>
+                                    <div t-if="record.payment_method.raw_value">
+                                        <i class="fa fa-credit-card"/> <field name="payment_method"/>
+                                    </div>
+                                    <div t-if="record.reference.raw_value">
+                                        <i class="fa fa-hashtag"/> <field name="reference"/>
+                                    </div>
+                                    <div class="o_pp_uploader">
+                                        <i class="fa fa-user"/> <field name="uploaded_by"/> · <field name="upload_date"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Vista Search -->
+    <record id="view_sale_payment_proof_search" model="ir.ui.view">
+        <field name="name">sale.payment.proof.search</field>
+        <field name="model">sale.payment.proof</field>
+        <field name="arch" type="xml">
+            <search string="Comprobantes de Pago">
+                <field name="name"/>
+                <field name="sale_order_id"/>
+                <field name="partner_id"/>
+                <field name="reference"/>
+                <field name="uploaded_by"/>
+                <separator/>
+                <filter string="Pendientes" name="filter_pending" domain="[('state', '=', 'pending')]"/>
+                <filter string="Aplicados" name="filter_applied" domain="[('state', '=', 'applied')]"/>
+                <filter string="Rechazados" name="filter_rejected" domain="[('state', '=', 'rejected')]"/>
+                <separator/>
+                <filter string="Mis cargas" name="filter_mine" domain="[('uploaded_by', '=', uid)]"/>
+                <group expand="0" string="Agrupar por">
+                    <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Método de pago" name="group_method" context="{'group_by': 'payment_method'}"/>
+                    <filter string="Subido por" name="group_uploader" context="{'group_by': 'uploaded_by'}"/>
+                    <filter string="Fecha de carga" name="group_upload" context="{'group_by': 'upload_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Acción menú -->
+    <record id="action_sale_payment_proof" model="ir.actions.act_window">
+        <field name="name">Comprobantes de Pago</field>
+        <field name="res_model">sale.payment.proof</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_sale_payment_proof_search"/>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aún no hay comprobantes de pago.
+            </p>
+            <p>
+                Los comprobantes de pago se cargan desde la pestaña <b>Comprobantes de Pago</b> en cada orden de venta.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_sale_payment_proof"
+              name="Comprobantes de Pago"
+              parent="sale.sale_order_menu"
+              action="action_sale_payment_proof"
+              sequence="25"/>
+
+</odoo>

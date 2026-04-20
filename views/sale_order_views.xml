@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_sale_order_form_payment_proof" model="ir.ui.view">
+        <field name="name">sale.order.form.payment.proof</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Comprobantes de Pago" name="payment_proofs">
+                    <div class="o_payment_proof_page">
+                        <div class="o_pp_header">
+                            <div class="o_pp_summary">
+                                <div class="o_pp_summary_item">
+                                    <span class="o_pp_summary_label">Comprobantes</span>
+                                    <span class="o_pp_summary_value">
+                                        <field name="payment_proof_count" readonly="1"/>
+                                    </span>
+                                </div>
+                                <div class="o_pp_summary_item">
+                                    <span class="o_pp_summary_label">Pendientes</span>
+                                    <span class="o_pp_summary_value text-warning">
+                                        <field name="payment_proof_pending_count" readonly="1"/>
+                                    </span>
+                                </div>
+                                <div class="o_pp_summary_item">
+                                    <span class="o_pp_summary_label">Total comprobado</span>
+                                    <span class="o_pp_summary_value text-success">
+                                        <field name="payment_proof_total" widget="monetary" readonly="1"/>
+                                    </span>
+                                </div>
+                            </div>
+                            <button name="action_open_payment_proof_wizard"
+                                    type="object"
+                                    string="📤 Subir Comprobante"
+                                    class="btn btn-primary o_pp_upload_btn"
+                                    invisible="not id"/>
+                            <div class="o_pp_hint text-muted" invisible="id">
+                                <i class="fa fa-info-circle"/>
+                                Guarda la orden primero para poder subir comprobantes.
+                            </div>
+                        </div>
+                        <field name="payment_proof_ids"
+                               nolabel="1"
+                               mode="kanban"
+                               readonly="0"
+                               context="{'default_sale_order_id': id}"/>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
