@@ -80,7 +80,10 @@
         <field name="name">sale.payment.proof.list</field>
         <field name="model">sale.payment.proof</field>
         <field name="arch" type="xml">
-            <list string="Comprobantes de Pago" decoration-success="state == 'applied'" decoration-danger="state == 'rejected'" decoration-warning="state == 'pending'">
+            <list string="Comprobantes de Pago"
+                  decoration-success="state == 'applied'"
+                  decoration-danger="state == 'rejected'"
+                  decoration-warning="state == 'pending'">
                 <field name="upload_date"/>
                 <field name="name"/>
                 <field name="sale_order_id"/>
@@ -91,37 +94,26 @@
                 <field name="payment_method"/>
                 <field name="reference"/>
                 <field name="uploaded_by"/>
-                <field name="state" widget="badge" decoration-success="state == 'applied'" decoration-danger="state == 'rejected'" decoration-warning="state == 'pending'"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'applied'"
+                       decoration-danger="state == 'rejected'"
+                       decoration-warning="state == 'pending'"/>
             </list>
         </field>
     </record>
 
-    <!-- Vista Kanban embedida -->
+    <!-- Vista Kanban embedida (Odoo 18/19: t-name="card") -->
     <record id="view_sale_payment_proof_kanban" model="ir.ui.view">
         <field name="name">sale.payment.proof.kanban</field>
         <field name="model">sale.payment.proof</field>
         <field name="arch" type="xml">
             <kanban class="o_payment_proof_kanban" default_order="upload_date desc">
-                <field name="id"/>
-                <field name="name"/>
-                <field name="amount"/>
-                <field name="currency_id"/>
-                <field name="payment_date"/>
-                <field name="payment_method"/>
-                <field name="reference"/>
-                <field name="upload_date"/>
-                <field name="uploaded_by"/>
-                <field name="state"/>
-                <field name="is_pdf"/>
-                <field name="is_image"/>
-                <field name="file_name"/>
-                <field name="file_mimetype"/>
                 <templates>
-                    <t t-name="kanban-box">
-                        <div class="oe_kanban_global_click o_payment_proof_card">
+                    <t t-name="card">
+                        <div class="o_payment_proof_card">
                             <div class="o_pp_preview">
                                 <t t-if="record.is_image.raw_value">
-                                    <img t-attf-src="/web/image/sale.payment.proof/#{record.id.raw_value}/file"
+                                    <img t-attf-src="/web/image/sale.payment.proof/{{record.id.raw_value}}/file"
                                          alt="Comprobante"
                                          class="o_pp_thumb"/>
                                 </t>
@@ -136,7 +128,7 @@
                                         <i class="fa fa-file-o"/>
                                     </div>
                                 </t>
-                                <span t-attf-class="o_pp_state badge #{record.state.raw_value == 'applied' ? 'text-bg-success' : record.state.raw_value == 'rejected' ? 'text-bg-danger' : 'text-bg-warning'}">
+                                <span t-attf-class="o_pp_state badge {{record.state.raw_value == 'applied' ? 'text-bg-success' : record.state.raw_value == 'rejected' ? 'text-bg-danger' : 'text-bg-warning'}}">
                                     <field name="state"/>
                                 </span>
                             </div>
@@ -146,6 +138,7 @@
                                 </div>
                                 <div class="o_pp_amount" t-if="record.amount.raw_value">
                                     <field name="amount" widget="monetary"/>
+                                    <field name="currency_id" invisible="1"/>
                                 </div>
                                 <div class="o_pp_meta">
                                     <div t-if="record.payment_date.raw_value">
@@ -169,7 +162,7 @@
         </field>
     </record>
 
-    <!-- Vista Search -->
+    <!-- Vista Search (Odoo 19: sin expand="0") -->
     <record id="view_sale_payment_proof_search" model="ir.ui.view">
         <field name="name">sale.payment.proof.search</field>
         <field name="model">sale.payment.proof</field>
@@ -186,7 +179,7 @@
                 <filter string="Rechazados" name="filter_rejected" domain="[('state', '=', 'rejected')]"/>
                 <separator/>
                 <filter string="Mis cargas" name="filter_mine" domain="[('uploaded_by', '=', uid)]"/>
-                <group expand="0" string="Agrupar por">
+                <group string="Agrupar por">
                     <filter string="Cliente" name="group_partner" context="{'group_by': 'partner_id'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Método de pago" name="group_method" context="{'group_by': 'payment_method'}"/>
