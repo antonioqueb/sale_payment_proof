@@ -94,31 +94,17 @@
                 <field name="payment_method"/>
                 <field name="reference"/>
                 <field name="uploaded_by"/>
-                <field name="state" widget="badge"
-                       decoration-success="state == 'applied'"
-                       decoration-danger="state == 'rejected'"
-                       decoration-warning="state == 'pending'"/>
+                <field name="state"/>
             </list>
         </field>
     </record>
 
-    <!-- Vista Kanban embedida -->
+    <!-- Vista Kanban (minimalista Odoo 19) -->
     <record id="view_sale_payment_proof_kanban" model="ir.ui.view">
         <field name="name">sale.payment.proof.kanban</field>
         <field name="model">sale.payment.proof</field>
         <field name="arch" type="xml">
-            <kanban class="o_payment_proof_kanban" default_order="upload_date desc">
-                <field name="id"/>
-                <field name="is_image"/>
-                <field name="is_pdf"/>
-                <field name="state"/>
-                <field name="amount"/>
-                <field name="currency_id"/>
-                <field name="payment_date"/>
-                <field name="payment_method"/>
-                <field name="reference"/>
-                <field name="upload_date"/>
-                <field name="uploaded_by"/>
+            <kanban default_order="upload_date desc">
                 <templates>
                     <t t-name="card">
                         <div class="o_payment_proof_card">
@@ -139,28 +125,25 @@
                                         <i class="fa fa-file-o"/>
                                     </div>
                                 </t>
-                                <span class="o_pp_state">
-                                    <field name="state" widget="badge"
-                                           decoration-success="state == 'applied'"
-                                           decoration-danger="state == 'rejected'"
-                                           decoration-warning="state == 'pending'"/>
-                                </span>
                             </div>
                             <div class="o_pp_body">
                                 <div class="o_pp_title">
                                     <field name="name"/>
                                 </div>
-                                <div class="o_pp_amount" t-if="record.amount.raw_value">
+                                <div class="o_pp_amount">
                                     <field name="amount" widget="monetary"/>
                                 </div>
                                 <div class="o_pp_meta">
-                                    <div t-if="record.payment_date.raw_value">
+                                    <div>
+                                        <field name="state"/>
+                                    </div>
+                                    <div>
                                         <i class="fa fa-calendar"/> <field name="payment_date"/>
                                     </div>
-                                    <div t-if="record.payment_method.raw_value">
+                                    <div>
                                         <i class="fa fa-credit-card"/> <field name="payment_method"/>
                                     </div>
-                                    <div t-if="record.reference.raw_value">
+                                    <div>
                                         <i class="fa fa-hashtag"/> <field name="reference"/>
                                     </div>
                                     <div class="o_pp_uploader">
@@ -175,29 +158,19 @@
         </field>
     </record>
 
-    <!-- Vista Search (patrón estándar Odoo 18/19: expand="0" y domain="[]" en group_by) -->
+    <!-- Vista Search (minimalista, sin uid, sin group_by) -->
     <record id="view_sale_payment_proof_search" model="ir.ui.view">
         <field name="name">sale.payment.proof.search</field>
         <field name="model">sale.payment.proof</field>
         <field name="arch" type="xml">
-            <search string="Comprobantes de Pago">
+            <search>
                 <field name="name"/>
                 <field name="sale_order_id"/>
                 <field name="partner_id"/>
                 <field name="reference"/>
-                <field name="uploaded_by"/>
                 <filter name="filter_pending" string="Pendientes" domain="[('state', '=', 'pending')]"/>
                 <filter name="filter_applied" string="Aplicados" domain="[('state', '=', 'applied')]"/>
                 <filter name="filter_rejected" string="Rechazados" domain="[('state', '=', 'rejected')]"/>
-                <separator/>
-                <filter name="filter_mine" string="Mis cargas" domain="[('uploaded_by', '=', uid)]"/>
-                <group expand="0" string="Agrupar por">
-                    <filter name="group_partner" string="Cliente" domain="[]" context="{'group_by': 'partner_id'}"/>
-                    <filter name="group_state" string="Estado" domain="[]" context="{'group_by': 'state'}"/>
-                    <filter name="group_method" string="Método de pago" domain="[]" context="{'group_by': 'payment_method'}"/>
-                    <filter name="group_uploader" string="Subido por" domain="[]" context="{'group_by': 'uploaded_by'}"/>
-                    <filter name="group_upload" string="Fecha de carga" domain="[]" context="{'group_by': 'upload_date'}"/>
-                </group>
             </search>
         </field>
     </record>
@@ -207,16 +180,7 @@
         <field name="name">Comprobantes de Pago</field>
         <field name="res_model">sale.payment.proof</field>
         <field name="view_mode">kanban,list,form</field>
-        <field name="search_view_id" ref="view_sale_payment_proof_search"/>
         <field name="context">{'search_default_filter_pending': 1}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Aún no hay comprobantes de pago.
-            </p>
-            <p>
-                Los comprobantes de pago se cargan desde la pestaña <b>Comprobantes de Pago</b> en cada orden de venta.
-            </p>
-        </field>
     </record>
 
     <menuitem id="menu_sale_payment_proof"
