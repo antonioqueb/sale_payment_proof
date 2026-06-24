@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from markupsafe import Markup
+
 from odoo import api, fields, models, _
 
 
@@ -58,8 +60,11 @@ class SalePaymentProof(models.Model):
         currency_field='currency_id',
     )
     currency_id = fields.Many2one(
-        related='sale_order_id.currency_id',
-        store=True,
+        'res.currency',
+        string='Divisa',
+        default=lambda self: self.env.company.currency_id,
+        help='Divisa del pago. Por defecto la de la orden, pero puede '
+             'capturarse en otra divisa si el pago se hizo así.',
     )
     payment_date = fields.Date(string='Fecha del pago')
     payment_method = fields.Selection(
@@ -175,8 +180,10 @@ class SalePaymentProof(models.Model):
             'ref': ref_html,
             'notes': notes_html,
         }
+        # Markup: en Odoo 17+ message_post escapa los str planos (se vería el HTML
+        # como texto). Con Markup se renderiza como HTML.
         order.message_post(
-            body=body,
+            body=Markup(body),
             attachment_ids=[new_attachment.id] if new_attachment else [],
             subtype_xmlid='mail.mt_note',
         )
@@ -243,28 +250,20 @@ class SalePaymentProof(models.Model):
 
     # ─── Vínculo visual del comprobante en las actividades ───────────────────
 
-    def _payment_proof_attachment_links(self, attachment, with_image=True):
-        """HTML con link de descarga del comprobante y, si es imagen, una vista
-        previa embebida. Sirve para 'vincular' el comprobante dentro de la nota
-        de la actividad (especialmente la de Clara)."""
+    def _payment_proof_attachment_links(self, attachment):
+        """HTML con el link de descarga del comprobante para incluir en la nota
+        de la actividad. El documento en sí se vincula como ADJUNTO real de la
+        actividad (attachment_ids), que es más fiable que embeber una <img>."""
         if not attachment:
             return ''
         fname = self.file_name or self.name or 'comprobante'
         download_url = '/web/content/%s?download=true&amp;filename=%s' % (
             attachment.id, fname,
         )
-        link = (
+        return (
             '<p>📎 <a href="%s" target="_blank"><b>Ver / Descargar comprobante de pago</b></a></p>'
             % download_url
         )
-        preview = ''
-        if with_image and self.is_image:
-            preview = (
-                '<div><img src="/web/image/%s" alt="%s" '
-                'style="max-width:100%%;max-height:380px;border:1px solid #d1d5db;'
-                'border-radius:8px;margin-top:6px;"/></div>'
-            ) % (attachment.id, fname)
-        return link + preview
 
     def _proof_summary_html(self):
         """Encabezado común: cliente, orden, monto y referencia."""
@@ -305,7 +304,7 @@ class SalePaymentProof(models.Model):
                 'la orden / factura correspondiente. Al terminar, marca esta '
                 'actividad como hecha.</p>'
             )
-            + self._payment_proof_attachment_links(attachment, with_image=True)
+            + self._payment_proof_attachment_links(attachment)
         )
         activity = order.activity_schedule(
             'mail.mail_activity_data_todo',
@@ -324,11 +323,13 @@ class SalePaymentProof(models.Model):
                     pass
 
     def _schedule_invoice_activities(self, attachment=False):
-        """Actividad para SARAHI / LOURDES / ZULEMA: crear la factura.
+        """Actividad 'Crear factura'.
 
-        Odoo solo admite UN responsable por actividad, así que se crea una
-        actividad idéntica por cada usuario. El texto aclara que basta con que
-        una persona genere la factura."""
+        Odoo solo admite UN responsable por actividad. Por eso se crea UNA sola
+        actividad asignada al responsable PRINCIPAL (el primero configurado,
+        p. ej. Lourdes) y al resto (p. ej. Zulema) se le agrega como SEGUIDOR de
+        la orden y se le NOTIFICA, para que se entere sin duplicar la tarea.
+        """
         self.ensure_one()
         order = self.sale_order_id
         if not order:
@@ -336,7 +337,21 @@ class SalePaymentProof(models.Model):
         users = self._get_invoice_users()
         if not users:
             return
-        names = ', '.join(users.mapped('name'))
+
+        primary = users[0]
+        others = users[1:]
+
+        extra = ''
+        if others:
+            extra = _(
+                '<p><b>Responsable principal:</b> %(primary)s. '
+                '<b>También avisada(s):</b> %(others)s. '
+                'Cualquiera de ellas puede generar la factura.</p>'
+            ) % {
+                'primary': primary.name,
+                'others': ', '.join(others.mapped('name')),
+            }
+
         note = (
             _('<p><b>🧾 Pago recibido — generar la factura.</b></p>')
             + '<p>' + self._proof_summary_html() + '</p>'
@@ -344,19 +359,36 @@ class SalePaymentProof(models.Model):
                 '<p>El comprobante ya está cargado en esta orden (pestaña '
                 '«Comprobantes de Pago» y en la conversación / chatter).</p>'
                 '<p><b>Qué debes hacer:</b> generar la <b>factura</b> de esta orden '
-                'de venta. Esta tarea está asignada a <b>%(names)s</b>; en cuanto '
-                'una de las personas la genere, las demás pueden marcar su actividad '
-                'como hecha.</p>'
-            ) % {'names': names}
-            + self._payment_proof_attachment_links(attachment, with_image=False)
-        )
-        for user in users:
-            order.activity_schedule(
-                'mail.mail_activity_data_todo',
-                summary=_('Crear factura: %s') % (order.name or ''),
-                note=note,
-                user_id=user.id,
+                'de venta.</p>'
             )
+            + extra
+            + self._payment_proof_attachment_links(attachment)
+        )
+
+        activity = order.activity_schedule(
+            'mail.mail_activity_data_todo',
+            summary=_('Crear factura: %s') % (order.name or ''),
+            note=note,
+            user_id=primary.id,
+        )
+
+        # Las demás responsables: seguidoras de la orden + aviso en su bandeja.
+        other_partners = others.mapped('partner_id')
+        if other_partners:
+            order.message_subscribe(partner_ids=other_partners.ids)
+            order.message_post(
+                body=Markup(
+                    _('<p>🧾 <b>Pendiente — generar la factura</b> de la orden '
+                      '<b>%(order)s</b> (pago recibido).</p>'
+                      '<p>Responsable principal: <b>%(primary)s</b>. Te avisamos '
+                      'por si necesitas generarla tú; la actividad está en la '
+                      'orden de venta.</p>')
+                    % {'order': order.name, 'primary': primary.name}
+                ),
+                partner_ids=other_partners.ids,
+                subtype_xmlid='mail.mt_note',
+            )
+        return activity
 
     def action_mark_applied(self):
         for rec in self:

@@ -19,9 +19,20 @@ class SalePaymentProofUploadWizard(models.TransientModel):
         readonly=True,
     )
     currency_id = fields.Many2one(
-        related='sale_order_id.currency_id',
-        readonly=True,
+        'res.currency',
+        string='Divisa',
+        required=True,
     )
+
+    @api.model
+    def default_get(self, fields_list):
+        res = super().default_get(fields_list)
+        order_id = res.get('sale_order_id') or self.env.context.get('default_sale_order_id')
+        if order_id:
+            order = self.env['sale.order'].browse(order_id)
+            if order.exists():
+                res.setdefault('currency_id', order.currency_id.id)
+        return res
     name = fields.Char(
         string='Descripción',
         default=lambda self: _('Comprobante de pago'),
@@ -67,6 +78,7 @@ class SalePaymentProofUploadWizard(models.TransientModel):
                 'file': self.file,
                 'file_name': self.file_name or self.name,
                 'amount': self.amount,
+                'currency_id': self.currency_id.id,
                 'payment_date': self.payment_date,
                 'payment_method': self.payment_method,
                 'reference': self.reference,
