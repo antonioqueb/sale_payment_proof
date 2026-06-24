@@ -1,15 +1,21 @@
 {
     'name': 'Comprobantes de Pago en Órdenes de Venta',
-    'version': '19.0.1.0.0',
+    'version': '19.0.2.0.0',
     'category': 'Sales',
     'summary': 'Gestión de comprobantes de pago con notificación automática al responsable',
     'description': """
 Comprobantes de Pago en Órdenes de Venta
 =========================================
-- Pestaña dedicada en la orden de venta para subir comprobantes de pago.
+- Botón "Subir Pago" en el encabezado de la orden de venta confirmada
+  (además de la pestaña dedicada).
 - Soporta múltiples comprobantes por orden (PDF e imágenes).
 - Cada comprobante se publica automáticamente en el chatter como adjunto.
-- Crea una actividad para el usuario responsable configurado para que aplique el pago.
+- Crea una actividad "Aplicar pago" para el responsable (Clara) con el
+  comprobante vinculado (imagen embebida / link de descarga).
+- Crea una actividad "Crear factura" para cada responsable de facturación
+  (Sarahi, Lourdes, Zulema). Como Odoo solo permite un responsable por
+  actividad, se crea una actividad idéntica por usuario.
+- Responsables configurables por correo/login desde Ajustes de Ventas.
     """,
     'author': 'Alphaqueb Consulting SAS',
     'website': 'https://www.alphaqueb.com',

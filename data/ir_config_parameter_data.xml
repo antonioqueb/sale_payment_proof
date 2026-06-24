@@ -5,5 +5,19 @@
             <field name="key">sale_payment_proof.responsible_user_id</field>
             <field name="value">11</field>
         </record>
+
+        <!-- Responsable de APLICAR el pago (Clara). Se resuelve por correo/login,
+             así no se rompe si cambia el id del usuario. -->
+        <record id="default_payment_apply_user_login" model="ir.config_parameter">
+            <field name="key">sale_payment_proof.payment_apply_user_login</field>
+            <field name="value">clara@somgroup.mx</field>
+        </record>
+
+        <!-- Responsables de CREAR la factura (Sarahi, Lourdes, Zulema),
+             separados por coma. Se crea una actividad idéntica por usuario. -->
+        <record id="default_invoice_activity_user_logins" model="ir.config_parameter">
+            <field name="key">sale_payment_proof.invoice_activity_user_logins</field>
+            <field name="value">sarahi@somgroup.mx,lourdes@somgroup.mx,zulema@somgroup.mx</field>
+        </record>
     </data>
 </odoo>

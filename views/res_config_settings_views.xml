@@ -8,9 +8,19 @@
         <field name="arch" type="xml">
             <xpath expr="//app[@name='sale_management']" position="inside">
                 <block title="Comprobantes de Pago" name="payment_proof_block">
+                    <setting id="payment_proof_apply_user_setting"
+                             string="Responsable de aplicar el pago"
+                             help="Correo/login del usuario que aplica el pago (p. ej. Clara). Recibe una actividad con el comprobante vinculado.">
+                        <field name="payment_proof_apply_user_login" placeholder="clara@somgroup.mx"/>
+                    </setting>
+                    <setting id="payment_proof_invoice_users_setting"
+                             string="Responsables de crear factura"
+                             help="Correos/logins separados por coma (p. ej. Sarahi, Lourdes, Zulema). Cada uno recibe una actividad 'Crear factura'.">
+                        <field name="payment_proof_invoice_user_logins" placeholder="sarahi@somgroup.mx,lourdes@somgroup.mx,zulema@somgroup.mx"/>
+                    </setting>
                     <setting id="payment_proof_responsible_setting"
-                             string="Responsable de aplicar pagos"
-                             help="Usuario que recibirá una actividad cada vez que se cargue un comprobante de pago en una orden de venta.">
+                             string="Responsable de aplicar pagos (compatibilidad por id)"
+                             help="Usado solo si no se define el correo de arriba. Se conserva por compatibilidad.">
                         <field name="payment_proof_responsible_user_id"/>
                     </setting>
                 </block>

@@ -6,6 +6,16 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+
+            <!-- Botón "Subir Pago" en el header, solo en órdenes confirmadas. -->
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="action_open_payment_proof_wizard"
+                        type="object"
+                        string="Subir Pago"
+                        class="btn-primary"
+                        invisible="state not in ('sale', 'done')"/>
+            </xpath>
+
             <xpath expr="//notebook" position="inside">
                 <page string="Comprobantes de Pago" name="payment_proofs">
                     <div class="o_payment_proof_page">

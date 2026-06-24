@@ -113,8 +113,11 @@ class SalePaymentProof(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         for rec in records:
-            rec._post_to_chatter()
-            rec._schedule_payment_application_activity()
+            attachment = rec._post_to_chatter()
+            # Clara: aplica el pago (su actividad lleva el comprobante vinculado).
+            rec._schedule_payment_application_activity(attachment=attachment)
+            # Sarahi / Lourdes / Zulema: generan la factura.
+            rec._schedule_invoice_activities(attachment=attachment)
         return records
 
     def _post_to_chatter(self):
@@ -177,8 +180,33 @@ class SalePaymentProof(models.Model):
             attachment_ids=[new_attachment.id] if new_attachment else [],
             subtype_xmlid='mail.mt_note',
         )
+        return new_attachment
+
+    # ─── Resolución de responsables (configurable por correo/login) ──────────
+
+    def _resolve_users_by_login(self, logins):
+        """Devuelve un recordset res.users a partir de logins/correos.
+
+        Busca primero por login y luego por email. Ignora vacíos y duplicados.
+        Resiliente a cambios de id (usa el correo, no el id del usuario).
+        """
+        Users = self.env['res.users'].sudo()
+        found = Users.browse()
+        seen = set()
+        for raw in (logins or []):
+            login = (raw or '').strip()
+            if not login or login.lower() in seen:
+                continue
+            seen.add(login.lower())
+            user = Users.search([('login', '=', login)], limit=1)
+            if not user:
+                user = Users.search([('email', '=', login)], limit=1)
+            if user:
+                found |= user
+        return found
 
     def _get_responsible_user(self):
+        """Compat: responsable de aplicar pagos por id (parámetro antiguo)."""
         ICP = self.env['ir.config_parameter'].sudo()
         user_id_str = ICP.get_param('sale_payment_proof.responsible_user_id', '11')
         try:
@@ -190,35 +218,145 @@ class SalePaymentProof(models.Model):
             user = self.env.user
         return user
 
-    def _schedule_payment_application_activity(self):
+    def _get_payment_apply_user(self):
+        """Usuario que APLICA el pago (Clara). Prioriza el correo configurado;
+        si no existe, cae al parámetro antiguo por id y, en último caso, al
+        usuario actual."""
+        ICP = self.env['ir.config_parameter'].sudo()
+        login = (ICP.get_param(
+            'sale_payment_proof.payment_apply_user_login', 'clara@somgroup.mx'
+        ) or '').strip()
+        user = self._resolve_users_by_login([login]) if login else self.env['res.users']
+        if user:
+            return user[:1]
+        return self._get_responsible_user()
+
+    def _get_invoice_users(self):
+        """Usuarios que CREAN la factura (Sarahi, Lourdes, Zulema)."""
+        ICP = self.env['ir.config_parameter'].sudo()
+        raw = ICP.get_param(
+            'sale_payment_proof.invoice_activity_user_logins',
+            'sarahi@somgroup.mx,lourdes@somgroup.mx,zulema@somgroup.mx',
+        )
+        logins = [x for x in (raw or '').split(',') if x.strip()]
+        return self._resolve_users_by_login(logins)
+
+    # ─── Vínculo visual del comprobante en las actividades ───────────────────
+
+    def _payment_proof_attachment_links(self, attachment, with_image=True):
+        """HTML con link de descarga del comprobante y, si es imagen, una vista
+        previa embebida. Sirve para 'vincular' el comprobante dentro de la nota
+        de la actividad (especialmente la de Clara)."""
+        if not attachment:
+            return ''
+        fname = self.file_name or self.name or 'comprobante'
+        download_url = '/web/content/%s?download=true&amp;filename=%s' % (
+            attachment.id, fname,
+        )
+        link = (
+            '<p>📎 <a href="%s" target="_blank"><b>Ver / Descargar comprobante de pago</b></a></p>'
+            % download_url
+        )
+        preview = ''
+        if with_image and self.is_image:
+            preview = (
+                '<div><img src="/web/image/%s" alt="%s" '
+                'style="max-width:100%%;max-height:380px;border:1px solid #d1d5db;'
+                'border-radius:8px;margin-top:6px;"/></div>'
+            ) % (attachment.id, fname)
+        return link + preview
+
+    def _proof_summary_html(self):
+        """Encabezado común: cliente, orden, monto y referencia."""
+        order = self.sale_order_id
+        amount_str = '{:,.2f}'.format(self.amount) if self.amount else '—'
+        ref_part = ''
+        if self.reference:
+            ref_part = _(' (Ref.: %s)') % self.reference
+        return _(
+            'El cliente <b>%(partner)s</b> registró el pago de la orden '
+            '<b>%(order)s</b> por <b>%(amount)s %(currency)s</b>%(ref)s.'
+        ) % {
+            'partner': order.partner_id.display_name or '',
+            'order': order.name,
+            'amount': amount_str,
+            'currency': self.currency_id.name or '',
+            'ref': ref_part,
+        }
+
+    # ─── Actividades ─────────────────────────────────────────────────────────
+
+    def _schedule_payment_application_activity(self, attachment=False):
+        """Actividad para CLARA: aplicar el pago. Lleva el comprobante vinculado
+        (imagen embebida / link de descarga) porque es quien lo aplica."""
         self.ensure_one()
         order = self.sale_order_id
         if not order:
             return
-        user = self._get_responsible_user()
-        amount_str = '{:,.2f}'.format(self.amount) if self.amount else '—'
-        note = _(
-            'Se cargó un nuevo comprobante de pago en la orden '
-            '<b>%(order)s</b>.<br/>'
-            '<b>Cliente:</b> %(partner)s<br/>'
-            '<b>Monto:</b> %(amount)s %(currency)s<br/>'
-            '<b>Referencia:</b> %(ref)s<br/><br/>'
-            'Por favor, valida y aplica el pago en el sistema.'
-        ) % {
-            'order': order.name,
-            'partner': order.partner_id.display_name or '',
-            'amount': amount_str,
-            'currency': self.currency_id.name or '',
-            'ref': self.reference or '—',
-        }
+        user = self._get_payment_apply_user()
+        if not user:
+            return
+        note = (
+            _('<p><b>📥 Comprobante de pago recibido — aplicar el pago.</b></p>')
+            + '<p>' + self._proof_summary_html() + '</p>'
+            + _(
+                '<p><b>Qué debes hacer:</b> revisa el comprobante adjunto, '
+                '<b>registra y aplica el pago</b> en el sistema, y concílialo con '
+                'la orden / factura correspondiente. Al terminar, marca esta '
+                'actividad como hecha.</p>'
+            )
+            + self._payment_proof_attachment_links(attachment, with_image=True)
+        )
         activity = order.activity_schedule(
             'mail.mail_activity_data_todo',
-            summary=_('Aplicar pago: %s') % (self.name or ''),
+            summary=_('Aplicar pago: %s') % (order.name or ''),
             note=note,
             user_id=user.id,
         )
         if activity:
             self.activity_id = activity.id
+            # Si la versión de Odoo soporta adjuntos en la actividad, se vincula
+            # directamente el comprobante (refuerza el "vínculo" pedido).
+            if attachment and 'attachment_ids' in activity._fields:
+                try:
+                    activity.sudo().write({'attachment_ids': [(4, attachment.id)]})
+                except Exception:
+                    pass
+
+    def _schedule_invoice_activities(self, attachment=False):
+        """Actividad para SARAHI / LOURDES / ZULEMA: crear la factura.
+
+        Odoo solo admite UN responsable por actividad, así que se crea una
+        actividad idéntica por cada usuario. El texto aclara que basta con que
+        una persona genere la factura."""
+        self.ensure_one()
+        order = self.sale_order_id
+        if not order:
+            return
+        users = self._get_invoice_users()
+        if not users:
+            return
+        names = ', '.join(users.mapped('name'))
+        note = (
+            _('<p><b>🧾 Pago recibido — generar la factura.</b></p>')
+            + '<p>' + self._proof_summary_html() + '</p>'
+            + _(
+                '<p>El comprobante ya está cargado en esta orden (pestaña '
+                '«Comprobantes de Pago» y en la conversación / chatter).</p>'
+                '<p><b>Qué debes hacer:</b> generar la <b>factura</b> de esta orden '
+                'de venta. Esta tarea está asignada a <b>%(names)s</b>; en cuanto '
+                'una de las personas la genere, las demás pueden marcar su actividad '
+                'como hecha.</p>'
+            ) % {'names': names}
+            + self._payment_proof_attachment_links(attachment, with_image=False)
+        )
+        for user in users:
+            order.activity_schedule(
+                'mail.mail_activity_data_todo',
+                summary=_('Crear factura: %s') % (order.name or ''),
+                note=note,
+                user_id=user.id,
+            )
 
     def action_mark_applied(self):
         for rec in self:
