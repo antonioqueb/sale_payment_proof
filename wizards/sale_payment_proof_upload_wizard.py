@@ -38,7 +38,8 @@ class SalePaymentProofUploadWizard(models.TransientModel):
         default=lambda self: _('Comprobante de pago'),
         required=True,
     )
-    file = fields.Binary(string='Archivo', required=True)
+    # No es obligatorio para Efectivo (ahí se genera el recibo automáticamente).
+    file = fields.Binary(string='Archivo')
     file_name = fields.Char(string='Nombre del archivo')
     amount = fields.Monetary(
         string='Monto',
@@ -66,12 +67,58 @@ class SalePaymentProofUploadWizard(models.TransientModel):
         string='Subir otro comprobante después de guardar',
         default=False,
     )
+    # Solo aplica a Efectivo: firma/sello que se imprime en el recibo.
+    signature = fields.Binary(string='Firma / Sello (efectivo)')
+    signature_name = fields.Char(string='Nombre del Firmante')
+    is_cash = fields.Boolean(
+        string='Es Efectivo',
+        compute='_compute_is_cash',
+    )
+
+    @api.depends('payment_method')
+    def _compute_is_cash(self):
+        for wiz in self:
+            wiz.is_cash = wiz.payment_method == 'cash'
+
+    def _cash_notes(self):
+        """Concentra descripción/referencia/notas para el recibo de efectivo."""
+        self.ensure_one()
+        parts = []
+        if self.name and self.name != _('Comprobante de pago'):
+            parts.append(self.name)
+        if self.reference:
+            parts.append(_('Ref.: %s') % self.reference)
+        if self.notes:
+            parts.append(self.notes)
+        return '\n'.join(parts) or False
 
     def action_confirm(self):
         self.ensure_one()
+
+        # Pago en EFECTIVO: si el módulo de recibos está instalado, se genera el
+        # Recibo de Efectivo automáticamente (con su PDF). El recibo, al
+        # entregarse, dispara los avisos (Clara aplica / Lourdes factura) y el
+        # recordatorio al cajero. No se pide archivo.
+        if self.payment_method == 'cash' and 'cash.receipt' in self.env:
+            receipt = self.env['cash.receipt'].create({
+                'partner_id': self.sale_order_id.partner_id.id,
+                'sale_order_ids': [(6, 0, self.sale_order_id.ids)],
+                'amount': self.amount,
+                'currency_id': self.currency_id.id,
+                'notes': self._cash_notes(),
+                'signature': self.signature,
+                'signature_name': self.signature_name,
+            })
+            receipt.action_deliver()
+            if self.add_another:
+                return self.sale_order_id.action_open_payment_proof_wizard()
+            # Abre/imprime el recibo recién generado para descargarlo.
+            return receipt.action_print_receipt()
+
+        # Resto de métodos: comprobante con archivo (obligatorio).
         if not self.file:
-            raise UserError(_('Debes adjuntar un archivo.'))
-        proof = self.env['sale.payment.proof'].create(
+            raise UserError(_('Debes adjuntar el comprobante del pago.'))
+        self.env['sale.payment.proof'].create(
             {
                 'sale_order_id': self.sale_order_id.id,
                 'name': self.name or _('Comprobante'),

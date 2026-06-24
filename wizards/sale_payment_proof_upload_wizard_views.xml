@@ -16,20 +16,33 @@
                             <field name="partner_id" readonly="1" class="oe_inline" nolabel="1"/>.
                         </p>
                     </div>
+                    <field name="is_cash" invisible="1"/>
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="file" filename="file_name" widget="binary" required="1"/>
+                            <field name="payment_method"/>
+                            <field name="file" filename="file_name" widget="binary"
+                                   required="payment_method != 'cash'"
+                                   invisible="payment_method == 'cash'"/>
                             <field name="file_name" invisible="1"/>
+                            <field name="signature" widget="signature"
+                                   invisible="payment_method != 'cash'"/>
+                            <field name="signature_name"
+                                   invisible="payment_method != 'cash'"/>
                         </group>
                         <group>
                             <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="amount" widget="monetary"/>
                             <field name="payment_date"/>
-                            <field name="payment_method"/>
                             <field name="reference"/>
                         </group>
                     </group>
+                    <div class="alert alert-info" role="alert" invisible="payment_method != 'cash'">
+                        <i class="fa fa-info-circle me-1"/>
+                        Pago en <b>efectivo</b>: al confirmar se generará automáticamente el
+                        <b>Recibo de Efectivo (PDF)</b> y se notificará a quien corresponde.
+                        No necesitas adjuntar archivo.
+                    </div>
                     <group string="Notas">
                         <field name="notes" nolabel="1" placeholder="Notas opcionales sobre este comprobante..."/>
                     </group>
