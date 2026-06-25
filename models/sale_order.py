@@ -230,3 +230,182 @@ class SaleOrder(models.Model):
                 )
 
         return apply_activity
+
+    def _pp_has_registered_payment(self):
+        """True si la orden ya tiene factura(s) con pago registrado (total o
+        parcial). Sirve para resaltar el saldo pendiente al cobrar un excedente."""
+        self.ensure_one()
+        paid_states = {'in_payment', 'paid', 'partial', 'reversed'}
+        invoices = self.invoice_ids.filtered(lambda m: m.state == 'posted')
+        return any((inv.payment_state in paid_states) for inv in invoices)
+
+    def _overcharge_notify(self, product_name='', over_qty=0.0, uom_name='',
+                           amount=None, reason=''):
+        """Avisa a FACTURACIÓN (Lourdes/Zulema) y COBRANZA (Clara) cuando se
+        decide COBRAR un excedente sobre lo solicitado (p. ej. desde Transit
+        Allocation). Reutiliza los mismos responsables del flujo de pagos.
+
+        Si ya hay un pago/factura registrado, resalta el SALDO PENDIENTE que
+        genera el aumento del monto, que es el caso más crítico."""
+        self.ensure_one()
+
+        has_payment = self._pp_has_registered_payment()
+        qty_label = ('%.2f %s' % (over_qty or 0.0, uom_name or '')).strip()
+        amount_label = self._pp_amount_label(amount, self.currency_id) if amount else ''
+
+        summary = _(
+            'En la orden <b>%(order)s</b> (cliente <b>%(partner)s</b>) se decidió '
+            '<b>COBRAR un excedente</b> sobre lo solicitado'
+        ) % {'order': self.name, 'partner': self.partner_id.display_name or ''}
+        if product_name:
+            summary += _(' del producto <b>%s</b>') % product_name
+        summary += _(': <b>%(qty)s</b>%(amount)s.') % {
+            'qty': qty_label,
+            'amount': (_(' (~%s)') % amount_label) if amount_label else '',
+        }
+
+        new_total_html = _('<p>Nuevo total de la orden: <b>%s</b>.</p>') % (
+            self._pp_amount_label(self.amount_total, self.currency_id)
+        )
+
+        if has_payment:
+            balance_html = _(
+                '<p>⚠️ <b>La orden ya tiene un pago/factura registrado.</b> Al subir '
+                'el monto, queda un <b>saldo pendiente</b>: hay que ajustar/emitir la '
+                'factura por el excedente y dar seguimiento al cobro del saldo.</p>'
+            )
+        else:
+            balance_html = _(
+                '<p>Aún no hay pago registrado; queda anotado para que el cobro y la '
+                'facturación consideren el monto actualizado.</p>'
+            )
+
+        reason_html = ('<p><b>Motivo:</b> %s</p>' % reason) if reason else ''
+
+        # Chatter de la orden
+        self.message_post(
+            body=Markup('<p>💰 ' + summary + '</p>' + new_total_html + balance_html + reason_html),
+            subtype_xmlid='mail.mt_note',
+        )
+
+        # COBRANZA (Clara): seguimiento del cobro del saldo.
+        apply_user = self._pp_get_payment_apply_user()
+        if apply_user:
+            note = (
+                _('<p><b>💰 Excedente a cobrar — cobranza.</b></p>')
+                + '<p>' + summary + '</p>' + new_total_html + balance_html
+                + _('<p><b>Qué debes hacer:</b> da seguimiento al <b>cobro del saldo</b> '
+                    'generado por este excedente y concílialo cuando se reciba.</p>')
+                + reason_html
+            )
+            self.activity_schedule(
+                'mail.mail_activity_data_todo',
+                summary=_('Cobrar excedente: %s') % (self.name or ''),
+                note=note,
+                user_id=apply_user.id,
+            )
+
+        # FACTURACIÓN (Lourdes/Zulema): emitir/ajustar la factura del excedente.
+        inv_users = self._pp_get_invoice_users()
+        if inv_users:
+            primary = inv_users[0]
+            others = inv_users[1:]
+            extra = ''
+            if others:
+                extra = _(
+                    '<p><b>Responsable principal:</b> %(primary)s. '
+                    '<b>También avisada(s):</b> %(others)s.</p>'
+                ) % {'primary': primary.name, 'others': ', '.join(others.mapped('name'))}
+            note = (
+                _('<p><b>🧾 Excedente a cobrar — facturación.</b></p>')
+                + '<p>' + summary + '</p>' + new_total_html + balance_html
+                + _('<p><b>Qué debes hacer:</b> emitir o <b>ajustar la factura</b> para '
+                    'incluir el excedente cobrado.</p>')
+                + extra + reason_html
+            )
+            self.activity_schedule(
+                'mail.mail_activity_data_todo',
+                summary=_('Facturar excedente: %s') % (self.name or ''),
+                note=note,
+                user_id=primary.id,
+            )
+            other_partners = others.mapped('partner_id')
+            if other_partners:
+                self.message_subscribe(partner_ids=other_partners.ids)
+                self.message_post(
+                    body=Markup(
+                        _('<p>🧾 <b>Excedente a cobrar</b> en la orden <b>%(order)s</b>: '
+                          'revisar/ajustar la factura. Responsable principal: '
+                          '<b>%(primary)s</b>.</p>')
+                        % {'order': self.name, 'primary': primary.name}
+                    ),
+                    partner_ids=other_partners.ids,
+                    subtype_xmlid='mail.mt_note',
+                )
+        return True
+
+    def _credit_note_request_notify(self, product_name='', qty=0.0, uom_name='', reason=''):
+        """Avisa a FACTURACIÓN (Lourdes/Zulema) que se solicitó una NOTA DE
+        CRÉDITO para que la generen. Reutiliza los responsables del flujo de
+        pagos (mismo equipo de facturación)."""
+        self.ensure_one()
+        inv_users = self._pp_get_invoice_users()
+        if not inv_users:
+            return False
+
+        detail = ''
+        if product_name:
+            detail = _(' (%(p)s: %(qty)s %(uom)s)') % {
+                'p': product_name,
+                'qty': ('%.2f' % (qty or 0.0)),
+                'uom': uom_name or '',
+            }
+        summary = _(
+            'Se solicitó generar una <b>nota de crédito</b> para la orden '
+            '<b>%(order)s</b> (cliente <b>%(partner)s</b>)%(detail)s.'
+        ) % {
+            'order': self.name,
+            'partner': self.partner_id.display_name or '',
+            'detail': detail,
+        }
+        reason_html = ('<p><b>Motivo:</b> %s</p>' % reason) if reason else ''
+
+        self.message_post(
+            body=Markup('<p>🧾 ' + summary + '</p>' + reason_html),
+            subtype_xmlid='mail.mt_note',
+        )
+
+        primary = inv_users[0]
+        others = inv_users[1:]
+        extra = ''
+        if others:
+            extra = _(
+                '<p><b>Responsable principal:</b> %(primary)s. '
+                '<b>También avisada(s):</b> %(others)s.</p>'
+            ) % {'primary': primary.name, 'others': ', '.join(others.mapped('name'))}
+        note = (
+            _('<p><b>🧾 Generar nota de crédito.</b></p>')
+            + '<p>' + summary + '</p>'
+            + _('<p><b>Qué debes hacer:</b> generar la <b>nota de crédito</b> '
+                'correspondiente en el sistema contable.</p>')
+            + extra + reason_html
+        )
+        self.activity_schedule(
+            'mail.mail_activity_data_todo',
+            summary=_('Generar nota de crédito: %s') % (self.name or ''),
+            note=note,
+            user_id=primary.id,
+        )
+        other_partners = others.mapped('partner_id')
+        if other_partners:
+            self.message_subscribe(partner_ids=other_partners.ids)
+            self.message_post(
+                body=Markup(
+                    _('<p>🧾 <b>Generar nota de crédito</b> para la orden '
+                      '<b>%(order)s</b>. Responsable principal: <b>%(primary)s</b>.</p>')
+                    % {'order': self.name, 'primary': primary.name}
+                ),
+                partner_ids=other_partners.ids,
+                subtype_xmlid='mail.mt_note',
+            )
+        return True
