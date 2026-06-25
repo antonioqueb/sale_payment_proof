@@ -1,6 +1,6 @@
 {
     'name': 'Comprobantes de Pago en Órdenes de Venta',
-    'version': '19.0.2.3.0',
+    'version': '19.0.2.4.0',
     'category': 'Sales',
     'summary': 'Gestión de comprobantes de pago con notificación automática al responsable',
     'description': """

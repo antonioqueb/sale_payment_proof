@@ -74,6 +74,11 @@ class SalePaymentProofUploadWizard(models.TransientModel):
         string='Es Efectivo',
         compute='_compute_is_cash',
     )
+    # Anti doble-clic: una vez registrado, no se vuelve a crear nada.
+    state = fields.Selection(
+        [('draft', 'Borrador'), ('done', 'Registrado')],
+        default='draft',
+    )
 
     @api.depends('payment_method')
     def _compute_is_cash(self):
@@ -94,6 +99,10 @@ class SalePaymentProofUploadWizard(models.TransientModel):
 
     def action_confirm(self):
         self.ensure_one()
+        if self.state == 'done':
+            raise UserError(_(
+                'Este pago ya fue registrado en esta ventana. Ciérrala para continuar.'
+            ))
 
         # Pago en EFECTIVO: si el módulo de recibos está instalado, se genera el
         # Recibo de Efectivo automáticamente (con su PDF). El recibo, al
@@ -110,6 +119,7 @@ class SalePaymentProofUploadWizard(models.TransientModel):
                 'signature_name': self.signature_name,
             })
             receipt.action_deliver()
+            self.state = 'done'
             if self.add_another:
                 return self.sale_order_id.action_open_payment_proof_wizard()
             # Abre/imprime el recibo recién generado para descargarlo.
@@ -132,6 +142,7 @@ class SalePaymentProofUploadWizard(models.TransientModel):
                 'notes': self.notes,
             }
         )
+        self.state = 'done'
         if self.add_another:
             return self.sale_order_id.action_open_payment_proof_wizard()
         return {'type': 'ir.actions.act_window_close'}
