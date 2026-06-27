@@ -1,6 +1,6 @@
 {
     'name': 'Comprobantes de Pago en Órdenes de Venta',
-    'version': '19.0.2.6.0',
+    'version': '19.0.2.7.0',
     'category': 'Sales',
     'summary': 'Gestión de comprobantes de pago con notificación automática al responsable',
     'description': """
@@ -32,6 +32,7 @@ Comprobantes de Pago en Órdenes de Venta
     'assets': {
         'web.assets_backend': [
             'sale_payment_proof/static/src/scss/payment_proof.scss',
+            'sale_payment_proof/static/src/js/payment_proof_wizard.js',
         ],
     },
     'installable': True,

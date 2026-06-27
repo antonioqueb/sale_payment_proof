@@ -5,50 +5,83 @@
         <field name="name">sale.payment.proof.upload.wizard.form</field>
         <field name="model">sale.payment.proof.upload.wizard</field>
         <field name="arch" type="xml">
-            <form string="Subir Comprobante de Pago">
+            <form string="Subir Comprobante de Pago" class="o_ppw_form">
                 <sheet>
-                    <div class="o_pp_wizard_header">
-                        <h2>📤 Subir Comprobante de Pago</h2>
-                        <p class="text-muted">
-                            Carga el comprobante para la orden
-                            <field name="sale_order_id" readonly="1" class="oe_inline" nolabel="1"/>
-                            del cliente
-                            <field name="partner_id" readonly="1" class="oe_inline" nolabel="1"/>.
-                        </p>
-                    </div>
                     <field name="is_cash" invisible="1"/>
-                    <group>
-                        <group>
-                            <field name="name"/>
-                            <field name="payment_method"/>
-                            <field name="file" filename="file_name" widget="binary"
-                                   required="payment_method != 'cash'"
-                                   invisible="payment_method == 'cash'"/>
-                            <field name="file_name" invisible="1"/>
-                            <field name="signature" widget="signature"
-                                   invisible="payment_method != 'cash'"/>
-                            <field name="signature_name"
-                                   invisible="payment_method != 'cash'"/>
-                        </group>
-                        <group>
-                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
-                            <field name="amount" widget="monetary"/>
-                            <field name="payment_date"/>
-                            <field name="reference"/>
-                        </group>
-                    </group>
-                    <div class="alert alert-info" role="alert" invisible="payment_method != 'cash'">
-                        <i class="fa fa-info-circle me-1"/>
-                        Pago en <b>efectivo</b>: al confirmar se generará automáticamente el
-                        <b>Recibo de Efectivo (PDF)</b> y se notificará a quien corresponde.
-                        No necesitas adjuntar archivo.
+
+                    <!-- Encabezado -->
+                    <div class="o_ppw_header">
+                        <div class="o_ppw_header_title">
+                            <span class="o_ppw_header_icon">📤</span>
+                            <div>
+                                <h2>Subir Comprobante de Pago</h2>
+                                <p>
+                                    Orden
+                                    <field name="sale_order_id" readonly="1" class="oe_inline" nolabel="1"/>
+                                    · Cliente
+                                    <field name="partner_id" readonly="1" class="oe_inline" nolabel="1"/>
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                    <group string="Notas">
-                        <field name="notes" nolabel="1" placeholder="Notas opcionales sobre este comprobante..."/>
-                    </group>
-                    <group>
-                        <field name="add_another"/>
-                    </group>
+
+                    <!-- Datos del pago -->
+                    <div class="o_ppw_card">
+                        <div class="o_ppw_card_title">Datos del pago</div>
+                        <group>
+                            <group>
+                                <field name="payment_method"/>
+                                <field name="name" string="Descripción"/>
+                                <field name="reference"/>
+                            </group>
+                            <group>
+                                <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="amount" widget="monetary"/>
+                                <field name="payment_date"/>
+                            </group>
+                        </group>
+                    </div>
+
+                    <!-- Comprobante (no efectivo) -->
+                    <div class="o_ppw_card" invisible="payment_method == 'cash'">
+                        <div class="o_ppw_card_title">Comprobante</div>
+                        <group>
+                            <field name="file" filename="file_name" widget="binary" nolabel="1"
+                                   required="payment_method != 'cash'"/>
+                            <field name="file_name" invisible="1"/>
+                        </group>
+                    </div>
+
+                    <!-- Firma (efectivo) -->
+                    <div class="o_ppw_card" invisible="payment_method != 'cash'">
+                        <div class="o_ppw_card_title">Firma / Sello (efectivo)</div>
+                        <group>
+                            <field name="signature_name"/>
+                        </group>
+                        <field name="signature" widget="signature" nolabel="1" class="o_ppw_signature"/>
+                    </div>
+
+                    <!-- Aviso efectivo -->
+                    <div class="o_ppw_alert" role="alert" invisible="payment_method != 'cash'">
+                        <i class="fa fa-info-circle"/>
+                        <span>
+                            Pago en <b>efectivo</b>: al confirmar se generará automáticamente el
+                            <b>Recibo de Efectivo (PDF)</b> y se notificará a quien corresponde.
+                            No necesitas adjuntar archivo.
+                        </span>
+                    </div>
+
+                    <!-- Notas -->
+                    <div class="o_ppw_card">
+                        <div class="o_ppw_card_title">Notas</div>
+                        <field name="notes" nolabel="1"
+                               placeholder="Notas opcionales sobre este comprobante..."/>
+                    </div>
+
+                    <div class="o_ppw_another">
+                        <field name="add_another" nolabel="1"/>
+                        <span>Subir otro comprobante después de guardar</span>
+                    </div>
                 </sheet>
                 <footer>
                     <button name="action_confirm"

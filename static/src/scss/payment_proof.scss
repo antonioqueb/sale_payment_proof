@@ -183,3 +183,153 @@
         font-size: 13px;
     }
 }
+
+// ============================================================================
+// Wizard "Subir Comprobante de Pago" — interfaz moderna
+// ============================================================================
+
+// Ancho del modal (respaldo :has(); el JS agrega o_ppw_modal por robustez)
+@include media-breakpoint-up(md) {
+    .o_dialog .modal-dialog.o_ppw_modal,
+    .o_dialog .modal-dialog:has(.o_ppw_form) {
+        max-width: 880px !important;
+        width: 90vw !important;
+        margin: 1.5rem auto;
+
+        .modal-content {
+            border: none;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 18px 50px rgba(15, 31, 61, 0.22);
+        }
+    }
+}
+
+.o_ppw_form {
+    --ppw-blue: #2563eb;
+    --ppw-blue-900: #1e3a8a;
+    --ppw-sky: #38bdf8;
+    --ppw-line: #e6edf6;
+    --ppw-ink: #0f1f3d;
+    --ppw-muted: #6b7a90;
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    .o_form_sheet_bg, .o_form_sheet {
+        max-width: 100% !important;
+        width: 100% !important;
+        background: #f5f8fc;
+        box-shadow: none;
+        border: none;
+        padding: 0 !important;
+    }
+    .o_form_sheet { padding: 1.1rem 1.3rem 1.4rem !important; }
+
+    // ----- Encabezado -----
+    .o_ppw_header {
+        margin: -1.1rem -1.3rem 1.1rem;
+        padding: 1.3rem 1.4rem;
+        background: linear-gradient(135deg, var(--ppw-blue-900) 0%, var(--ppw-blue) 55%, var(--ppw-sky) 100%);
+        color: #fff;
+
+        .o_ppw_header_title { display: flex; align-items: center; gap: 1rem; }
+        .o_ppw_header_icon { font-size: 2.1rem; line-height: 1; }
+        h2 { margin: 0; font-weight: 700; color: #fff; font-size: 1.4rem; }
+        p { margin: 0.2rem 0 0; font-size: 0.85rem; color: rgba(255, 255, 255, 0.9); }
+        .o_field_widget, a { color: #fff !important; font-weight: 600; }
+    }
+
+    // ----- Tarjetas de sección -----
+    .o_ppw_card {
+        background: #fff;
+        border: 1px solid var(--ppw-line);
+        border-radius: 12px;
+        padding: 0.9rem 1.1rem 1rem;
+        margin-bottom: 0.9rem;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+
+        .o_ppw_card_title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            color: var(--ppw-blue-900);
+            margin-bottom: 0.6rem;
+            padding-bottom: 0.45rem;
+            border-bottom: 1px dashed var(--ppw-line);
+        }
+
+        // Alineación y estilo de los campos del group
+        .o_inner_group { width: 100%; }
+        .o_form_label { color: var(--ppw-muted); font-weight: 600; }
+
+        input.o_input, .o_input, textarea, .o_field_widget input {
+            border: 1px solid var(--ppw-line) !important;
+            border-radius: 8px;
+            padding: 5px 9px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            &:focus {
+                border-color: var(--ppw-blue) !important;
+                box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+                outline: none;
+            }
+        }
+    }
+
+    // Firma
+    .o_ppw_signature {
+        display: block;
+        .o_signature {
+            border: 1px dashed var(--ppw-blue) !important;
+            border-radius: 10px;
+            background: #f7faff;
+            max-width: 340px;
+        }
+    }
+
+    // ----- Aviso efectivo -----
+    .o_ppw_alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid var(--ppw-blue);
+        border-radius: 10px;
+        padding: 0.7rem 0.9rem;
+        margin-bottom: 0.9rem;
+        font-size: 0.85rem;
+        color: #1e3a5f;
+
+        i { color: var(--ppw-blue); font-size: 1rem; margin-top: 2px; }
+    }
+
+    // Notas
+    .o_ppw_card textarea { width: 100%; min-height: 64px; }
+
+    // ----- Subir otro -----
+    .o_ppw_another {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--ppw-muted);
+        padding: 0.3rem 0.2rem 0;
+        span { user-select: none; }
+    }
+}
+
+// Pie del modal del wizard
+.o_dialog .modal-dialog.o_ppw_modal,
+.o_dialog .modal-dialog:has(.o_ppw_form) {
+    .modal-footer {
+        background: #f5f8fc;
+        border-top: 1px solid #e6edf6;
+        .btn-primary {
+            font-weight: 600;
+            padding-inline: 1.4rem;
+            border: none;
+            background: linear-gradient(135deg, #2563eb 0%, #38bdf8 100%);
+        }
+    }
+}
