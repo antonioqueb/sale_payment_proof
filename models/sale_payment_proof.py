@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from datetime import timedelta
 
 from markupsafe import Markup
 
@@ -121,11 +120,14 @@ class SalePaymentProof(models.Model):
     def _check_duplicate_proof(self, vals):
         """Anti-duplicado de comprobantes.
 
-        Bloquea dos casos:
-        1. El MISMO archivo ya subido a la misma orden (duplicado claro,
-           sin límite de tiempo).
-        2. Comprobante con misma orden, monto y método dentro de la ventana
-           configurable (default 30 min) — re-envíos y dobles capturas.
+        Bloquea ÚNICAMENTE el caso de duplicado inequívoco: el MISMO archivo
+        ya subido a la misma orden (sin límite de tiempo).
+
+        NOTA (2026-08-12): se ELIMINÓ la ventana por orden+monto+método —
+        bloqueaba pagos parciales legítimos por el mismo monto (dos
+        transferencias de 50k sobre un pedido de 100k). Los comprobantes se
+        suben sin restricción; el control de duplicidad vive en el registro
+        del PAGO formal, y el excedente es saldo a favor del CLIENTE.
 
         Flujos programáticos pueden omitirlo con context 'skip_duplicate_check'.
         """
@@ -136,7 +138,7 @@ class SalePaymentProof(models.Model):
         if not order_id:
             return
 
-        # 1. Mismo archivo exacto en la misma orden.
+        # Mismo archivo exacto en la misma orden.
         new_file = vals.get('file')
         if new_file:
             siblings = self.sudo().search([
@@ -152,44 +154,6 @@ class SalePaymentProof(models.Model):
                         'name': sib.name,
                         'date': fields.Datetime.to_string(sib.upload_date) if sib.upload_date else '',
                     })
-
-        # 2. Misma orden + monto + método dentro de la ventana.
-        amount = vals.get('amount')
-        if not amount:
-            return
-
-        minutes_param = self.env['ir.config_parameter'].sudo().get_param(
-            'sale_payment_proof.duplicate_window_minutes', '30',
-        )
-        try:
-            minutes = max(int(minutes_param), 0)
-        except (TypeError, ValueError):
-            minutes = 30
-
-        if not minutes:
-            return
-
-        threshold = fields.Datetime.now() - timedelta(minutes=minutes)
-        domain = [
-            ('sale_order_id', '=', order_id),
-            ('amount', '=', amount),
-            ('state', '!=', 'rejected'),
-            ('create_date', '>=', threshold),
-        ]
-        if vals.get('payment_method'):
-            domain.append(('payment_method', '=', vals['payment_method']))
-        if vals.get('currency_id'):
-            domain.append(('currency_id', '=', vals['currency_id']))
-
-        dup = self.sudo().search(domain, limit=1)
-        if dup:
-            raise UserError(_(
-                'Ya existe un comprobante con el mismo monto y método en esta '
-                'orden, registrado hace menos de %(minutes)s minutos '
-                '(%(name)s). Para evitar duplicados no se creará otro.\n\n'
-                'Si realmente es un segundo pago igual, espera a que pase la '
-                'ventana o rechaza/elimina el comprobante anterior.'
-            ) % {'minutes': minutes, 'name': dup.name})
 
     @api.model_create_multi
     def create(self, vals_list):
