@@ -4,6 +4,7 @@ from markupsafe import Markup
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from odoo.addons.sale_payment_proof.models.som_date_format import som_format_date
 
 
 class SalePaymentProof(models.Model):
@@ -152,7 +153,7 @@ class SalePaymentProof(models.Model):
                         'orden (%(name)s, %(date)s). No se creará un duplicado.'
                     ) % {
                         'name': sib.name,
-                        'date': fields.Datetime.to_string(sib.upload_date) if sib.upload_date else '',
+                        'date': som_format_date(sib.upload_date, empty='', with_time=True),
                     })
 
     @api.model_create_multi
@@ -218,7 +219,8 @@ class SalePaymentProof(models.Model):
             }
         date_html = ''
         if self.payment_date:
-            date_html = _('<li><b>Fecha del pago:</b> %s</li>') % self.payment_date
+            date_html = _('<li><b>Fecha del pago:</b> %s</li>') % som_format_date(
+                self.payment_date)
         method_html = ''
         if method_label:
             method_html = _('<li><b>Método:</b> %s</li>') % method_label
