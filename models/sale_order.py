@@ -61,8 +61,11 @@ class SaleOrder(models.Model):
     # cash.receipt (efectivo) y el registro unificado de pagos, para NO duplicar
     # la lógica. Crea:
     #   - Actividad "Aplicar pago" (Clara) con el/los comprobante(s) vinculados.
-    #   - Actividad "Crear factura" (Lourdes; Zulema avisada).
     #   - (opcional) Resumen en el chatter de la orden.
+    # OJO (ago 2026): la actividad "Crear factura" (Lourdes/Zulema) se
+    # ELIMINÓ de este motor — la creación de la factura ya está
+    # automatizada; contabilidad NO debe recibir actividades por pagos.
+    # _pp_get_invoice_users sigue vivo para notas de crédito y excedentes.
     # Responsables configurables por correo/login (Ajustes → Ventas).
     # =========================================================================
 
@@ -171,9 +174,10 @@ class SaleOrder(models.Model):
             note = (
                 _('<p><b>📥 Pago recibido — aplicar el pago.</b></p>')
                 + '<p>' + summary + '</p>' + extra_summary_html
-                + _('<p><b>Qué debes hacer:</b> revisa el/los comprobante(s), '
-                    '<b>registra y aplica el pago</b> en el sistema y concílialo con '
-                    'la orden / factura. Al terminar, marca esta actividad como hecha.</p>')
+                + _('<p><b>Qué debes hacer: APLICA EL PAGO.</b> La factura ya '
+                    'se genera automáticamente; solo revisa el/los '
+                    'comprobante(s), aplica el pago y concílialo. Al terminar, '
+                    'marca esta actividad como hecha.</p>')
                 + links
             )
             apply_activity = self.activity_schedule(
@@ -190,44 +194,10 @@ class SaleOrder(models.Model):
                 except Exception:
                     pass
 
-        # 3) Actividad "Crear factura" (Lourdes; Zulema avisada).
-        inv_users = self._pp_get_invoice_users()
-        if inv_users:
-            primary = inv_users[0]
-            others = inv_users[1:]
-            extra = ''
-            if others:
-                extra = _(
-                    '<p><b>Responsable principal:</b> %(primary)s. '
-                    '<b>También avisada(s):</b> %(others)s. '
-                    'Cualquiera puede generar la factura.</p>'
-                ) % {'primary': primary.name, 'others': ', '.join(others.mapped('name'))}
-            note = (
-                _('<p><b>🧾 Pago recibido — generar la factura.</b></p>')
-                + '<p>' + summary + '</p>' + extra_summary_html
-                + _('<p>El/los comprobante(s) ya están en la orden (chatter y pestañas).</p>'
-                    '<p><b>Qué debes hacer:</b> generar la <b>factura</b> de esta orden.</p>')
-                + extra + links
-            )
-            self.activity_schedule(
-                'mail.mail_activity_data_todo',
-                summary=_('Crear factura: %s') % (self.name or ''),
-                note=note,
-                user_id=primary.id,
-            )
-            other_partners = others.mapped('partner_id')
-            if other_partners:
-                self.message_subscribe(partner_ids=other_partners.ids)
-                self.message_post(
-                    body=Markup(
-                        _('<p>🧾 <b>Pendiente — generar la factura</b> de la orden '
-                          '<b>%(order)s</b> (pago recibido). Responsable principal: '
-                          '<b>%(primary)s</b>.</p>')
-                        % {'order': self.name, 'primary': primary.name}
-                    ),
-                    partner_ids=other_partners.ids,
-                    subtype_xmlid='mail.mt_note',
-                )
+        # 3) (ELIMINADO ago 2026) Actividad "Crear factura" para
+        # contabilidad (Lourdes/Zulema): la factura ya se crea de forma
+        # automática, así que un pago NO genera actividades a facturación.
+        # La ÚNICA notificada por un pago es quien lo aplica (Clara).
 
         return apply_activity
 
