@@ -1,6 +1,6 @@
 {
     'name': 'Comprobantes de Pago en Órdenes de Venta',
-    'version': '19.0.4.0.0',
+    'version': '19.0.4.1.0',
     'category': 'Sales',
     'summary': 'Gestión de comprobantes de pago con notificación automática al responsable',
     'description': """
@@ -23,6 +23,7 @@ Comprobantes de Pago en Órdenes de Venta
     'depends': ['sale_management', 'mail'],
     'data': [
         'security/ir.model.access.csv',
+        'security/multi_company_rules.xml',
         'data/ir_config_parameter_data.xml',
         'wizards/sale_payment_proof_upload_wizard_views.xml',
         'views/sale_payment_proof_views.xml',

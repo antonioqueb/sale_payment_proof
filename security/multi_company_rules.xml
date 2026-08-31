@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- company_id es related almacenado a la orden: cada compañía ve
+             solo los comprobantes de sus ventas. -->
+        <record id="rule_sale_payment_proof_company" model="ir.rule">
+            <field name="name">Comprobante de Pago: multiempresa</field>
+            <field name="model_id" ref="model_sale_payment_proof"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+    </data>
+</odoo>

@@ -50,6 +50,7 @@
                         <group>
                             <field name="sale_order_id" readonly="1"/>
                             <field name="partner_id" readonly="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
                             <field name="amount" widget="monetary"/>
                             <field name="currency_id" invisible="1"/>
                             <field name="payment_date"/>
@@ -171,6 +172,7 @@
                 <filter name="filter_pending" string="Pendientes" domain="[('state', '=', 'pending')]"/>
                 <filter name="filter_applied" string="Aplicados" domain="[('state', '=', 'applied')]"/>
                 <filter name="filter_rejected" string="Rechazados" domain="[('state', '=', 'rejected')]"/>
+                <filter name="group_company" string="Compañía" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
             </search>
         </field>
     </record>

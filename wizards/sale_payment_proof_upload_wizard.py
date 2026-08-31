@@ -109,7 +109,10 @@ class SalePaymentProofUploadWizard(models.TransientModel):
         # entregarse, dispara los avisos (Clara aplica / Lourdes factura) y el
         # recordatorio al cajero. No se pide archivo.
         if self.payment_method == 'cash' and 'cash.receipt' in self.env:
-            receipt = self.env['cash.receipt'].create({
+            # Recibo en la compañía de la ORDEN (no la activa del usuario).
+            company = self.sale_order_id.company_id or self.env.company
+            receipt = self.env['cash.receipt'].with_company(company).create({
+                'company_id': company.id,
                 'partner_id': self.sale_order_id.partner_id.id,
                 'sale_order_ids': [(6, 0, self.sale_order_id.ids)],
                 'amount': self.amount,
