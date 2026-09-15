@@ -123,7 +123,7 @@
                                 </t>
                                 <t t-else="">
                                     <div class="o_pp_pdf">
-                                        <i class="fa fa-file-o"/>
+                                        <i class="fa fa-file-o" title="Archivo"/>
                                     </div>
                                 </t>
                             </div>
@@ -139,16 +139,16 @@
                                         <field name="state"/>
                                     </div>
                                     <div>
-                                        <i class="fa fa-calendar"/> <field name="payment_date"/>
+                                        <i class="fa fa-calendar" title="Fecha"/> <field name="payment_date"/>
                                     </div>
                                     <div>
-                                        <i class="fa fa-credit-card"/> <field name="payment_method"/>
+                                        <i class="fa fa-credit-card" title="Pago"/> <field name="payment_method"/>
                                     </div>
                                     <div>
-                                        <i class="fa fa-hashtag"/> <field name="reference"/>
+                                        <i class="fa fa-hashtag" title="Referencia"/> <field name="reference"/>
                                     </div>
                                     <div class="o_pp_uploader">
-                                        <i class="fa fa-user"/> <field name="uploaded_by"/> · <field name="upload_date"/>
+                                        <i class="fa fa-user" title="Usuario"/> <field name="uploaded_by"/> · <field name="upload_date"/>
                                     </div>
                                 </div>
                             </div>
